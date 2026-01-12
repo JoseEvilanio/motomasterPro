@@ -159,45 +159,50 @@ const OSManagement: React.FC<{ user: User }> = ({ user }) => {
   }, [itemSearch, products, services]);
 
   const addItemToOS = (item: any) => {
-    const existing = formData.items.find(it => it.id === item.id);
-    if (existing) {
-      setFormData({
-        ...formData,
-        items: formData.items.map(it => it.id === item.id ? { ...it, quantity: it.quantity + 1 } : it)
-      });
-    } else {
-      setFormData({
-        ...formData,
-        items: [...formData.items, {
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: 1,
-          type: item.type
-        }]
-      });
-    }
+    // We use a prefixed ID to avoid collisions between Products and Services
+    const uniqueId = `${item.type}_${item.id}`;
+
+    setFormData(prev => {
+      const existing = prev.items.find(it => it.id === uniqueId);
+      if (existing) {
+        return {
+          ...prev,
+          items: prev.items.map(it => it.id === uniqueId ? { ...it, quantity: it.quantity + 1 } : it)
+        };
+      } else {
+        return {
+          ...prev,
+          items: [...prev.items, {
+            id: uniqueId,
+            name: item.name,
+            price: item.price,
+            quantity: 1,
+            type: item.type
+          }]
+        };
+      }
+    });
     setItemSearch('');
   };
 
   const removeItemFromOS = (id: string) => {
-    setFormData({
-      ...formData,
-      items: formData.items.filter(it => it.id !== id)
-    });
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.filter(it => it.id !== id)
+    }));
   };
 
   const updateItemQuantity = (id: string, delta: number) => {
-    setFormData({
-      ...formData,
-      items: formData.items.map(it => {
+    setFormData(prev => ({
+      ...prev,
+      items: prev.items.map(it => {
         if (it.id === id) {
           const newQty = Math.max(1, it.quantity + delta);
           return { ...it, quantity: newQty };
         }
         return it;
       })
-    });
+    }));
   };
 
   const handleAiConsult = async () => {
