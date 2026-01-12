@@ -130,7 +130,6 @@ const MechanicDashboard: React.FC<{ user: User }> = ({ user }) => {
             }];
         }
 
-        // Calculate new total
         const newTotal = newItems.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
 
         await updateDoc(doc(db, 'service_orders', activeWorkOS.id), {
@@ -140,10 +139,39 @@ const MechanicDashboard: React.FC<{ user: User }> = ({ user }) => {
         toast.success("Produto adicionado!");
     };
 
+    const removeProductFromOS = async (productId: string) => {
+        if (!activeWorkOS) return;
+        const newItems = (activeWorkOS.items || []).filter((i: any) => i.id !== productId);
+        const newTotal = newItems.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
+        await updateDoc(doc(db, 'service_orders', activeWorkOS.id), {
+            items: newItems,
+            total: newTotal
+        });
+        toast.success("Item removido!");
+    };
+
+    const updateProductQuantity = async (productId: string, delta: number) => {
+        if (!activeWorkOS) return;
+        const newItems = (activeWorkOS.items || []).map((i: any) => {
+            if (i.id === productId) {
+                return { ...i, quantity: Math.max(1, i.quantity + delta) };
+            }
+            return i;
+        });
+        const newTotal = newItems.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
+        await updateDoc(doc(db, 'service_orders', activeWorkOS.id), {
+            items: newItems,
+            total: newTotal
+        });
+    };
+
     const filteredProducts = products.filter(p =>
         p.name.toLowerCase().includes(searchProduct.toLowerCase()) ||
         p.sku.toLowerCase().includes(searchProduct.toLowerCase())
     );
+
+    // Sync activeWorkOS with the latest data from myOS
+    const syncedActiveOS = activeWorkOS ? (myOS.find(os => os.id === activeWorkOS.id) || activeWorkOS) : null;
 
     if (loading) return <div className="p-10 text-center text-zinc-500">Carregando painel...</div>;
 
@@ -232,15 +260,15 @@ const MechanicDashboard: React.FC<{ user: User }> = ({ user }) => {
             </div>
 
             {/* MODAL FOR MANAGING OS */}
-            {activeWorkOS && (
-                <div className="fixed inset-0 bg-black/90 z-50 flex items-end sm:items-center justify-center sm:p-4">
-                    <div className="bg-[#1c1c20] w-full max-w-2xl sm:rounded-3xl border border-zinc-800 max-h-[90vh] flex flex-col">
-                        <div className="p-6 border-b border-zinc-800 flex justify-between items-center">
+            {syncedActiveOS && (
+                <div className="fixed inset-0 bg-black/95 z-50 flex items-end sm:items-center justify-center sm:p-4 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[#1c1c20] w-full max-w-2xl sm:rounded-[2.5rem] border border-zinc-800 max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in slide-in-from-bottom-5">
+                        <div className="p-8 border-b border-zinc-800/50 flex justify-between items-center bg-black/20">
                             <div>
-                                <h2 className="text-xl font-black uppercase tracking-tight">Gerenciar OS {activeWorkOS.osNumber ? `#${activeWorkOS.osNumber}` : `#${activeWorkOS.id.substring(0, 6).toUpperCase()}`}</h2>
-                                <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest mt-1">Adicionar Peças e Serviços</p>
+                                <h2 className="text-2xl font-black uppercase tracking-tighter">Gerenciar OS {syncedActiveOS.osNumber ? `#${syncedActiveOS.osNumber}` : `#${syncedActiveOS.id.substring(0, 6).toUpperCase()}`}</h2>
+                                <p className="text-purple-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Adicionar Peças e Serviços</p>
                             </div>
-                            <button onClick={() => setActiveWorkOS(null)} className="p-2 text-zinc-500 hover:text-white"><ICONS.X className="w-6 h-6" /></button>
+                            <button onClick={() => setActiveWorkOS(null)} className="p-3 text-zinc-500 hover:text-white bg-white/5 rounded-2xl border border-white/10 transition-all hover:scale-110"><ICONS.X className="w-6 h-6" /></button>
                         </div>
 
                         <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
@@ -274,16 +302,41 @@ const MechanicDashboard: React.FC<{ user: User }> = ({ user }) => {
 
                             {/* Current Items */}
                             <div className="space-y-3">
-                                <h4 className="text-xs font-black text-zinc-500 uppercase tracking-widest mb-2">Itens Utilizados</h4>
-                                {!activeWorkOS.items || activeWorkOS.items.length === 0 ? (
-                                    <div className="text-center py-8 text-zinc-700 text-xs uppercase font-bold">Nenhum item adicionado</div>
+                                <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] mb-4">Itens Utilizados</h4>
+                                {!syncedActiveOS.items || syncedActiveOS.items.length === 0 ? (
+                                    <div className="text-center py-12 border border-dashed border-zinc-800 rounded-[2rem] text-zinc-700 text-[10px] uppercase font-black tracking-widest">Nenhum item adicionado</div>
                                 ) : (
-                                    activeWorkOS.items.map((item: any, idx: number) => (
-                                        <div key={idx} className="bg-zinc-900/50 p-4 rounded-2xl flex justify-between items-center border border-zinc-800/50">
-                                            <span className="font-bold text-sm">{item.name}</span>
+                                    syncedActiveOS.items.map((item: any, idx: number) => (
+                                        <div key={idx} className="bg-black/40 p-4 rounded-2xl flex justify-between items-center border border-zinc-800/50 group hover:border-purple-500/30 transition-all">
+                                            <div className="flex-1 min-w-0 mr-4">
+                                                <p className="font-bold text-sm text-white uppercase truncate">{item.name}</p>
+                                                <p className="text-[10px] text-zinc-600 font-bold uppercase mt-0.5 whitespace-nowrap">R$ {item.price.toLocaleString('pt-BR')} cada</p>
+                                            </div>
                                             <div className="flex items-center gap-4">
-                                                <span className="text-xs text-zinc-500">x{item.quantity}</span>
-                                                <span className="text-sm font-mono text-white">R$ {(item.price * item.quantity).toFixed(2)}</span>
+                                                <div className="flex items-center gap-2 bg-zinc-800/50 p-1 rounded-xl border border-white/5">
+                                                    <button
+                                                        onClick={() => updateProductQuantity(item.id, -1)}
+                                                        className="p-1.5 text-zinc-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                                    >
+                                                        <ICONS.Minus className="w-3 h-3" />
+                                                    </button>
+                                                    <span className="w-6 text-center text-xs font-black text-white">{item.quantity}</span>
+                                                    <button
+                                                        onClick={() => updateProductQuantity(item.id, 1)}
+                                                        className="p-1.5 text-zinc-500 hover:text-white hover:bg-white/5 rounded-lg transition-colors"
+                                                    >
+                                                        <ICONS.Plus className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                                <div className="text-right min-w-[80px]">
+                                                    <p className="text-sm font-black text-emerald-400">R$ {(item.price * item.quantity).toFixed(2).toLocaleString()}</p>
+                                                </div>
+                                                <button
+                                                    onClick={() => removeProductFromOS(item.id)}
+                                                    className="p-2 text-zinc-600 hover:text-rose-500 bg-white/5 hover:bg-rose-500/10 rounded-xl border border-white/5 transition-all"
+                                                >
+                                                    <ICONS.Trash className="w-4 h-4" />
+                                                </button>
                                             </div>
                                         </div>
                                     ))
@@ -291,16 +344,16 @@ const MechanicDashboard: React.FC<{ user: User }> = ({ user }) => {
                             </div>
                         </div>
 
-                        <div className="p-6 border-t border-zinc-800 bg-black/20">
-                            <div className="flex justify-between items-center mb-4">
-                                <span className="text-xs font-black text-zinc-500 uppercase tracking-widest">Total Atual</span>
-                                <span className="text-2xl font-black text-white">R$ {activeWorkOS.total?.toFixed(2) || '0.00'}</span>
+                        <div className="p-8 border-t border-zinc-800/50 bg-black/40">
+                            <div className="flex justify-between items-center mb-6">
+                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em]">Total Acumulado</span>
+                                <span className="text-3xl font-black text-emerald-500 tracking-tighter">R$ {syncedActiveOS.total?.toFixed(2) || '0.00'}</span>
                             </div>
                             <button
                                 onClick={() => setActiveWorkOS(null)}
-                                className="w-full bg-zinc-800 text-white font-black uppercase text-xs py-4 rounded-xl hover:bg-zinc-700 transition-colors"
+                                className="w-full bg-white text-black font-black uppercase text-xs py-5 rounded-2xl hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-xl shadow-black/20"
                             >
-                                Fechar e Salvar
+                                Fechar e Salvar OS
                             </button>
                         </div>
                     </div>
