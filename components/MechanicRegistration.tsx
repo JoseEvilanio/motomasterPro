@@ -24,6 +24,8 @@ const MechanicRegistration: React.FC = () => {
         specialty: ''
     });
 
+    const currentUser = auth.currentUser;
+
     useEffect(() => {
         // Optional: Fetch organization name to show "Register at [Workshop Name]"
         // This assumes there's a way to get org info. For now, we'll verify orgId exists? 
@@ -102,7 +104,7 @@ const MechanicRegistration: React.FC = () => {
         } catch (error: any) {
             console.error(error);
             if (error.code === 'auth/email-already-in-use') {
-                toast.error("Este email já está em uso.");
+                toast.error("Este email já está em uso. Se você já tem uma conta, por favor faça login ou use outro email.");
             } else if (error.code === 'auth/invalid-email') {
                 toast.error("O email fornecido é inválido.");
             } else if (error.code === 'auth/weak-password') {
@@ -114,6 +116,28 @@ const MechanicRegistration: React.FC = () => {
             setLoading(false);
         }
     };
+
+    if (currentUser && !loading) {
+        return (
+            <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4">
+                <div className="bg-[#1c1c20] border border-[#27272a] w-full max-w-md rounded-2xl p-8 shadow-2xl text-center">
+                    <div className="w-16 h-16 bg-amber-500/10 rounded-2xl mx-auto flex items-center justify-center mb-6">
+                        <ICONS.AlertTriangle className="w-8 h-8 text-amber-500" />
+                    </div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight mb-2">Você já está logado</h2>
+                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest leading-relaxed">
+                        Para cadastrar um novo mecânico, você precisa sair da sua conta atual ou usar uma aba anônima.
+                    </p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="mt-8 text-purple-500 font-black uppercase text-[10px] tracking-widest hover:text-purple-400 transition-colors"
+                    >
+                        Voltar ao Dashboard
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#09090b] flex items-center justify-center p-4">

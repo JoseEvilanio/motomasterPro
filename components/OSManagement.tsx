@@ -16,7 +16,8 @@ import {
   serverTimestamp,
   doc,
   updateDoc,
-  getDocs
+  getDocs,
+  increment
 } from 'firebase/firestore';
 
 interface OSItem {
@@ -255,24 +256,67 @@ const OSManagement: React.FC<{ user: User }> = ({ user }) => {
     return number;
   };
 
+  const processOSBilling = async (osId: string, osData: any) => {
+    const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+
+    // 1. Create financial transaction
+    await addDoc(collection(db, 'transactions'), {
+      ownerId,
+      osId: osId,
+      label: `OS #${osData.osNumber || osId.slice(-4)} - ${getClientName(osData.clientId)}`,
+      amount: osData.total || 0,
+      category: 'INCOME',
+      status: 'PAID',
+      paymentMethod: 'CASH', // Default for now
+      date: serverTimestamp()
+    });
+
+    // 2. Deduct stock for products
+    if (osData.items && osData.items.length > 0) {
+      for (const item of osData.items) {
+        if (item.type === 'PRODUCT') {
+          // Remove prefix if present (from previous fix)
+          const cleanId = item.id.replace('PRODUCT_', '').replace('SERVICE_', '');
+          const productRef = doc(db, 'products', cleanId);
+          await updateDoc(productRef, {
+            stock: increment(-item.quantity),
+            updatedAt: serverTimestamp()
+          });
+        }
+      }
+    }
+  };
+
   const updateOSStatus = async (osId: string, newStatus: OSStatus) => {
     try {
       const osRef = doc(db, 'service_orders', osId);
-      const osSnap = await getDocs(query(collection(db, 'service_orders'), where('id', '==', osId))); // Hack to get data if needed, but easier to use find in local list
       const currentOS = osList.find(os => os.id === osId);
+
+      // Prevent duplicate billing if already billed
+      const isFinishing = (newStatus === OSStatus.FINISHED || newStatus === OSStatus.DELIVERED);
+      const wasFinished = (currentOS?.status === OSStatus.FINISHED || currentOS?.status === OSStatus.DELIVERED);
 
       const updateData: any = {
         status: newStatus,
         updatedAt: serverTimestamp()
       };
 
-      if ((newStatus === OSStatus.FINISHED || newStatus === OSStatus.DELIVERED) && (!currentOS?.osNumber)) {
+      if (isFinishing && !currentOS?.osNumber) {
         updateData.osNumber = await generateOSNumber();
       }
 
       await updateDoc(osRef, updateData);
+
+      // Trigger billing if finalizing for the first time
+      if (isFinishing && !wasFinished) {
+        const fullOSData = { ...currentOS, ...updateData };
+        await processOSBilling(osId, fullOSData);
+        toast.success("Financeiro e estoque atualizados!");
+      }
+
       toast.success(t('status_updated' as any));
     } catch (error) {
+      console.error("Update status error:", error);
       toast.error("Erro ao atualizar status");
     }
   };
@@ -304,12 +348,29 @@ const OSManagement: React.FC<{ user: User }> = ({ user }) => {
 
       if (activeOS) {
         await updateDoc(doc(db, 'service_orders', activeOS.id), payload);
+
+        // Check if finalizing from edit modal
+        const isFinishing = (payload.status === OSStatus.FINISHED || payload.status === OSStatus.DELIVERED);
+        const wasFinished = (activeOS.status === OSStatus.FINISHED || activeOS.status === OSStatus.DELIVERED);
+
+        if (isFinishing && !wasFinished) {
+          await processOSBilling(activeOS.id, payload);
+          toast.success("Financeiro e estoque atualizados!");
+        }
+
         toast.success("Ordem de Serviço atualizada!");
       } else {
-        await addDoc(collection(db, 'service_orders'), {
+        const docRef = await addDoc(collection(db, 'service_orders'), {
           ...payload,
           createdAt: serverTimestamp()
         });
+
+        // If created already as finished (rare but possible)
+        if (payload.status === OSStatus.FINISHED || payload.status === OSStatus.DELIVERED) {
+          await processOSBilling(docRef.id, payload);
+          toast.success("Financeiro e estoque atualizados!");
+        }
+
         toast.success("Nova Ordem de Serviço criada!");
       }
 

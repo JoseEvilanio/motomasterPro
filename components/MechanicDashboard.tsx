@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, OSStatus, Product } from '../types';
 import { db } from '../services/firebase';
-import { collection, query, where, onSnapshot, updateDoc, doc, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, updateDoc, doc, getDocs, addDoc, serverTimestamp, increment } from 'firebase/firestore';
 import { t } from '../translations';
 import { ICONS } from '../constants';
 import { toast } from 'sonner';
@@ -104,9 +104,43 @@ const MechanicDashboard: React.FC<{ user: User }> = ({ user }) => {
                 status: OSStatus.FINISHED,
                 updatedAt: serverTimestamp()
             });
+
+            // 1. Create financial transaction
+            // Mechanic data has ownerId
+            const qMech = query(collection(db, 'mechanics'), where('userId', '==', user.id));
+            const mechSnap = await getDocs(qMech);
+            const ownerId = !mechSnap.empty ? mechSnap.docs[0].data().ownerId : user.ownerId;
+
+            await addDoc(collection(db, 'transactions'), {
+                ownerId: ownerId,
+                osId: os.id,
+                label: `OS #${os.osNumber || os.id.slice(-4)}`,
+                amount: os.total || 0,
+                category: 'INCOME',
+                status: 'PAID',
+                paymentMethod: 'CASH',
+                date: serverTimestamp()
+            });
+
+            // 2. Deduct stock for products
+            if (os.items && os.items.length > 0) {
+                for (const item of os.items) {
+                    if (item.type === 'PRODUCT') {
+                        // Remove prefix if present
+                        const cleanId = item.id.replace('PRODUCT_', '').replace('SERVICE_', '');
+                        const productRef = doc(db, 'products', cleanId);
+                        await updateDoc(productRef, {
+                            stock: increment(-item.quantity),
+                            updatedAt: serverTimestamp()
+                        });
+                    }
+                }
+            }
+
             setActiveWorkOS(null);
-            toast.success("OS Finalizada!");
+            toast.success("OS Finalizada, financeiro e estoque atualizados!");
         } catch (error) {
+            console.error("Finish OS error:", error);
             toast.error("Erro ao finalizar OS.");
         }
     };
