@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background-main: #09090b;
+  --color-background-sidebar: #0e0e10;
+  --color-background-card: #141416;
+  --color-border: #1f1f23;
+  --font-sans: "Inter", "sans-serif";
+  --font-brand: "Orbitron", "sans-serif";
+}
+
+@layer base {
+  body {
+    @apply bg-background-main text-white antialiased font-sans;
+  }
+}
+
+@layer components {
+  /* Typography Standard */
+  .text-main {
+    @apply text-xl font-black tracking-tighter uppercase;
+  }
+
+  .text-secondary {
+    @apply text-xs font-bold uppercase tracking-widest text-zinc-500;
+  }
+
+  /* Buttons Standard - Flattened to avoid @apply issues in v4 */
+  .btn-premium-primary {
+    @apply h-11 px-6 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 bg-white text-black hover:bg-zinc-200 shadow-lg shadow-white/5;
+  }
+
+  .btn-premium-secondary {
+    @apply h-11 px-6 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 bg-background-card border border-border text-zinc-400 hover:text-white hover:bg-zinc-800;
+  }
+
+  /* Containers */
+  .card-premium {
+    @apply bg-background-card border border-border rounded-[2rem] overflow-hidden shadow-xl shadow-black/20;
+  }
+
+  /* Form Elements */
+  .input-standard {
+    @apply bg-background-main border border-border rounded-xl px-5 py-3 text-sm text-white focus:border-purple-500 outline-none transition-all placeholder:text-zinc-600;
+  }
+
+  .square-card {
+    @apply bg-background-card border border-border;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-background-main;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-zinc-800 rounded-full;
+  }
+}
