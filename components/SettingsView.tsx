@@ -420,65 +420,6 @@ const SettingsView: React.FC<{ user: User }> = ({ user }) => {
                     </div>
                   </div>
 
-                  {/* Customer Portal Link */}
-                  <div className="p-6 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border border-purple-500/20 rounded-[2rem] flex flex-col gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 bg-purple-500/20 rounded-xl">
-                        <Globe className="w-5 h-5 text-purple-400" />
-                      </div>
-                      <div>
-                        <h4 className="text-white font-black uppercase tracking-wide text-sm">Link do Portal do Cliente</h4>
-                        <p className="text-zinc-400 text-xs mt-1">Compartilhe este link para que seus clientes consultem suas OS</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-zinc-300 text-xs font-mono truncate flex-1 select-all">
-                        {`${window.location.origin}/oficina/${user.id}/consultar`}
-                      </div>
-                      <button
-                        onClick={() => {
-                          const link = `${window.location.origin}/oficina/${user.id}/consultar`;
-
-                          const copyFallback = () => {
-                            try {
-                              const textArea = document.createElement("textarea");
-                              textArea.value = link;
-                              textArea.style.top = "0";
-                              textArea.style.left = "0";
-                              textArea.style.position = "fixed";
-                              document.body.appendChild(textArea);
-                              textArea.focus();
-                              textArea.select();
-                              const successful = document.execCommand('copy');
-                              document.body.removeChild(textArea);
-                              if (successful) {
-                                toast.success("Link copiado!");
-                              } else {
-                                throw new Error("Fallback failed");
-                              }
-                            } catch (err) {
-                              toast.error("Não foi possível copiar. Selecione e copie o link manualmente.");
-                            }
-                          };
-
-                          if (navigator.clipboard && navigator.clipboard.writeText) {
-                            navigator.clipboard.writeText(link)
-                              .then(() => toast.success("Link copiado!"))
-                              .catch(() => copyFallback());
-                          } else {
-                            copyFallback();
-                          }
-                        }}
-                        className="p-3 bg-white text-black rounded-xl hover:bg-zinc-200 transition-colors font-bold text-xs uppercase tracking-wider active:scale-95 whitespace-nowrap"
-                      >
-                        Copiar
-                      </button>
-                    </div>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                      💡 Dica: Envie este link por WhatsApp ou SMS para seus clientes
-                    </p>
-                  </div>
-
                   <div className="p-6 bg-background-main/50 border border-border rounded-[2rem] flex items-start gap-5">
                     <div className="p-3 bg-zinc-900 rounded-2xl border border-border/50">
                       <Lock className="w-6 h-6 text-zinc-500" />

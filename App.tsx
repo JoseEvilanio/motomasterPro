@@ -10,7 +10,7 @@ import FinancialView from './components/FinancialView.tsx';
 import SettingsView from './components/SettingsView.tsx';
 import VehiclesView from './components/VehiclesView.tsx';
 import ServicesView from './components/ServicesView.tsx';
-import CustomerPortal from './components/CustomerPortal.tsx';
+
 import Sidebar from './components/Sidebar.tsx';
 import Header from './components/Header.tsx';
 import AuthScreen from './components/AuthScreen.tsx';
@@ -35,11 +35,7 @@ const App: React.FC = () => {
   } = useStore();
 
   const location = useLocation();
-  const isStandaloneRoute =
-    location.pathname.startsWith('/join/') ||
-    location.pathname.startsWith('/oficina/') ||
-    location.pathname.startsWith('/consultar') ||
-    location.pathname.startsWith('/portal/');
+  const isJoinRoute = location.pathname.startsWith('/join/');
 
   useEffect(() => {
     if (!user) return;
@@ -164,10 +160,8 @@ const App: React.FC = () => {
   );
 
 
-  if (!user || isStandaloneRoute) return (
+  if (!user || isJoinRoute) return (
     <Routes>
-      <Route path="/oficina/:workshopId/consultar" element={<CustomerPortal />} />
-      <Route path="/consultar" element={<CustomerPortal />} />
       <Route path="/portal/registrar" element={<ClientSelfRegistration />} />
       <Route path="/join/:orgId" element={<MechanicRegistration />} />
       <Route path="*" element={!user ? <AuthScreen onLogin={setUser} /> : <Navigate to="/" replace />} />
