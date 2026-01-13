@@ -35,7 +35,11 @@ const App: React.FC = () => {
   } = useStore();
 
   const location = useLocation();
-  const isJoinRoute = location.pathname.startsWith('/join/');
+  const isStandaloneRoute =
+    location.pathname.startsWith('/join/') ||
+    location.pathname.startsWith('/oficina/') ||
+    location.pathname.startsWith('/consultar') ||
+    location.pathname.startsWith('/portal/');
 
   useEffect(() => {
     if (!user) return;
@@ -160,7 +164,7 @@ const App: React.FC = () => {
   );
 
 
-  if (!user || isJoinRoute) return (
+  if (!user || isStandaloneRoute) return (
     <Routes>
       <Route path="/oficina/:workshopId/consultar" element={<CustomerPortal />} />
       <Route path="/consultar" element={<CustomerPortal />} />
@@ -233,10 +237,6 @@ const App: React.FC = () => {
                   <Route path="/services" element={<ServicesView user={user} />} />
                   <Route path="/financial" element={<FinancialView user={user} />} />
                   <Route path="/settings" element={<SettingsView user={user} />} />
-                  <Route path="/oficina/:workshopId/consultar" element={<CustomerPortal />} />
-                  <Route path="/consultar" element={<CustomerPortal />} />
-                  <Route path="/portal/registrar" element={<ClientSelfRegistration />} />
-                  <Route path="/join/:orgId" element={<MechanicRegistration />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>
