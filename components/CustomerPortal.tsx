@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { db } from '../services/firebase';
 import { collection, query, where, getDocs, getDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { OSStatus, ServiceOrder } from '../types';
@@ -44,8 +44,35 @@ const CustomerPortal: React.FC = () => {
     const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
     const [searchParams] = useSearchParams();
+    const { workshopId } = useParams<{ workshopId?: string }>();
     const navigate = useNavigate();
     const searchTriggered = useRef(false);
+    const [workshopSettings, setWorkshopSettings] = useState<any>(null);
+    const [workshopNotFound, setWorkshopNotFound] = useState(false);
+
+    // Load workshop settings if workshopId is provided
+    useEffect(() => {
+        if (!workshopId) return;
+
+        const loadWorkshopSettings = async () => {
+            try {
+                const q = query(collection(db, 'settings'), where('ownerId', '==', workshopId));
+                const snap = await getDocs(q);
+                if (!snap.empty) {
+                    setWorkshopSettings(snap.docs[0].data());
+                    setWorkshopNotFound(false);
+                } else {
+                    setWorkshopNotFound(true);
+                    toast.error("Oficina não encontrada.");
+                }
+            } catch (error) {
+                console.error("Error loading workshop:", error);
+                setWorkshopNotFound(true);
+            }
+        };
+
+        loadWorkshopSettings();
+    }, [workshopId]);
 
     // Function moved outside to be reusable
     const performSearch = async (mode: 'VEHICLE' | 'OS_NUMBER', queryVal: string, extraVal?: string) => {
@@ -58,11 +85,20 @@ const CustomerPortal: React.FC = () => {
                 const isNumeric = /^\d+$/.test(searchVal);
 
                 // 1. Try search by osNumber field (String and Number versions for safety)
+                // CRITICAL: Filter by ownerId if workshopId is provided for multi-tenant isolation
+                const baseQuery = workshopId
+                    ? [where('ownerId', '==', workshopId), where('osNumber', '==', searchVal)]
+                    : [where('osNumber', '==', searchVal)];
+
                 const queries = [
-                    getDocs(query(collection(db, 'service_orders'), where('osNumber', '==', searchVal)))
+                    getDocs(query(collection(db, 'service_orders'), ...baseQuery))
                 ];
+
                 if (isNumeric) {
-                    queries.push(getDocs(query(collection(db, 'service_orders'), where('osNumber', '==', Number(searchVal)))));
+                    const numericQuery = workshopId
+                        ? [where('ownerId', '==', workshopId), where('osNumber', '==', Number(searchVal))]
+                        : [where('osNumber', '==', Number(searchVal))];
+                    queries.push(getDocs(query(collection(db, 'service_orders'), ...numericQuery)));
                 }
 
                 const snapshots = await Promise.all(queries);
@@ -79,12 +115,20 @@ const CustomerPortal: React.FC = () => {
                     // Try fetch by direct ID (exact match)
                     const directSnap = await getDoc(doc(db, 'service_orders', searchVal));
                     if (directSnap.exists()) {
-                        results.push({ id: directSnap.id, ...directSnap.data() } as ServiceOrder);
+                        const data = directSnap.data();
+                        // Verify ownerId if workshopId is provided
+                        if (!workshopId || data.ownerId === workshopId) {
+                            results.push({ id: directSnap.id, ...data } as ServiceOrder);
+                        }
                     } else {
                         // Try fetch by ID in upper case
                         const directSnapUpper = await getDoc(doc(db, 'service_orders', searchVal.toUpperCase()));
                         if (directSnapUpper.exists()) {
-                            results.push({ id: directSnapUpper.id, ...directSnapUpper.data() } as ServiceOrder);
+                            const data = directSnapUpper.data();
+                            // Verify ownerId if workshopId is provided
+                            if (!workshopId || data.ownerId === workshopId) {
+                                results.push({ id: directSnapUpper.id, ...data } as ServiceOrder);
+                            }
                         }
                     }
                 }
@@ -100,7 +144,12 @@ const CustomerPortal: React.FC = () => {
                     ? `${cleanPlate.slice(0, 3)}-${cleanPlate.slice(3)}`
                     : cleanPlate;
 
-                const vehiclesQuery = query(collection(db, 'vehicles'), where('plate', 'in', [cleanPlate, formattedPlate]));
+                // CRITICAL: Filter by ownerId if workshopId is provided for multi-tenant isolation
+                const vehicleQueryConstraints = workshopId
+                    ? [where('ownerId', '==', workshopId), where('plate', 'in', [cleanPlate, formattedPlate])]
+                    : [where('plate', 'in', [cleanPlate, formattedPlate])];
+
+                const vehiclesQuery = query(collection(db, 'vehicles'), ...vehicleQueryConstraints);
                 const vehiclesSnapshot = await getDocs(vehiclesQuery);
 
                 if (vehiclesSnapshot.empty) {
@@ -125,10 +174,14 @@ const CustomerPortal: React.FC = () => {
                     const dbPhone = (clientData.phone || '').replace(/\D/g, '');
 
                     if (dbTaxId === normalizedSearch || dbPhone === normalizedSearch || clientData.taxId === extraVal || clientData.phone === extraVal) {
-                        // 3. Query OS by vehicleId only (avoids composite index requirement)
+                        // 3. Query OS by vehicleId (and ownerId if workshopId provided)
+                        const osQueryConstraints = workshopId
+                            ? [where('ownerId', '==', workshopId), where('vehicleId', '==', vehicle.id)]
+                            : [where('vehicleId', '==', vehicle.id)];
+
                         const osQuery = query(
                             collection(db, 'service_orders'),
-                            where('vehicleId', '==', vehicle.id)
+                            ...osQueryConstraints
                         );
                         const osSnapshot = await getDocs(osQuery);
                         osSnapshot.forEach(docSnap => {
@@ -191,6 +244,27 @@ const CustomerPortal: React.FC = () => {
         }
     };
 
+    // Show error if workshop not found
+    if (workshopNotFound) {
+        return (
+            <div className="min-h-screen bg-[#09090b] text-white flex flex-col items-center justify-center p-6">
+                <div className="text-center max-w-md">
+                    <div className="w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-rose-500/20">
+                        <ICONS.Search className="w-10 h-10 text-rose-500" />
+                    </div>
+                    <h1 className="text-2xl font-black uppercase tracking-tight mb-2">Oficina Não Encontrada</h1>
+                    <p className="text-zinc-500 text-sm mb-8">O link que você acessou não corresponde a nenhuma oficina cadastrada.</p>
+                    <button
+                        onClick={() => navigate('/')}
+                        className="btn-premium-secondary"
+                    >
+                        Voltar ao Início
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="min-h-screen bg-[#09090b] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
             {/* Background gradients */}
@@ -201,13 +275,33 @@ const CustomerPortal: React.FC = () => {
 
             <div className="w-full max-w-xl animate-in fade-in slide-in-from-bottom-4 duration-700">
                 <div className="flex flex-col items-center mb-10 text-center">
-                    <div className="w-16 h-16 bg-gradient-to-tr from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-2xl mb-6 shadow-purple-500/20">
-                        <ICONS.Bike className="w-8 h-8 text-white" />
-                    </div>
-                    <h1 className="text-4xl font-black tracking-tighter sm:text-5xl bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent uppercase italic">
-                        MOTO<span className="text-purple-500">MASTER</span> PRO
-                    </h1>
-                    <h2 className="text-zinc-500 text-xs font-black uppercase tracking-[0.3em] mt-4">{t('os_status_tracking')}</h2>
+                    {/* Workshop Logo or Default Icon */}
+                    {workshopSettings?.logoUrl ? (
+                        <div className="w-20 h-20 bg-white/5 rounded-2xl flex items-center justify-center shadow-2xl mb-6 border border-white/10 p-2">
+                            <img src={workshopSettings.logoUrl} alt={workshopSettings.businessName} className="w-full h-full object-contain rounded-xl" />
+                        </div>
+                    ) : (
+                        <div className="w-16 h-16 bg-gradient-to-tr from-purple-500 to-blue-500 rounded-2xl flex items-center justify-center shadow-2xl mb-6 shadow-purple-500/20">
+                            <ICONS.Bike className="w-8 h-8 text-white" />
+                        </div>
+                    )}
+
+                    {/* Workshop Name or Default Title */}
+                    {workshopSettings?.businessName ? (
+                        <>
+                            <h1 className="text-3xl font-black tracking-tighter sm:text-4xl bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent uppercase italic mb-2">
+                                {workshopSettings.businessName}
+                            </h1>
+                            <h2 className="text-zinc-500 text-xs font-black uppercase tracking-[0.3em]">{t('os_status_tracking')}</h2>
+                        </>
+                    ) : (
+                        <>
+                            <h1 className="text-4xl font-black tracking-tighter sm:text-5xl bg-gradient-to-b from-white to-zinc-400 bg-clip-text text-transparent uppercase italic">
+                                MOTO<span className="text-purple-500">MASTER</span> PRO
+                            </h1>
+                            <h2 className="text-zinc-500 text-xs font-black uppercase tracking-[0.3em] mt-4">{t('os_status_tracking')}</h2>
+                        </>
+                    )}
                     <p className="text-zinc-400 mt-2 text-sm">{t('track_your_service')}</p>
                 </div>
 

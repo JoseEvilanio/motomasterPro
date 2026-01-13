@@ -162,6 +162,7 @@ const App: React.FC = () => {
 
   if (!user || isJoinRoute) return (
     <Routes>
+      <Route path="/oficina/:workshopId/consultar" element={<CustomerPortal />} />
       <Route path="/consultar" element={<CustomerPortal />} />
       <Route path="/portal/registrar" element={<ClientSelfRegistration />} />
       <Route path="/join/:orgId" element={<MechanicRegistration />} />
@@ -232,6 +233,7 @@ const App: React.FC = () => {
                   <Route path="/services" element={<ServicesView user={user} />} />
                   <Route path="/financial" element={<FinancialView user={user} />} />
                   <Route path="/settings" element={<SettingsView user={user} />} />
+                  <Route path="/oficina/:workshopId/consultar" element={<CustomerPortal />} />
                   <Route path="/consultar" element={<CustomerPortal />} />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
