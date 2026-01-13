@@ -421,47 +421,93 @@ const CustomerPortal: React.FC = () => {
                                                     <span className="text-purple-500 font-black text-sm">TOTAL R$ {os.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                                                 </div>
 
-                                                {/* Approval Actions */}
+                                                {/* Approval Actions - Only for OPEN status */}
                                                 {os.status === OSStatus.OPEN && (
-                                                    <div className="grid grid-cols-2 gap-3 pt-2">
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (!window.confirm("Deseja recusar este orçamento?")) return;
-                                                                try {
-                                                                    await updateDoc(doc(db, 'service_orders', os.id), {
-                                                                        status: OSStatus.REJECTED,
-                                                                        updatedAt: serverTimestamp(),
-                                                                        statusNotes: 'Orçamento recusado pelo cliente via portal.'
-                                                                    });
-                                                                    toast.success("Orçamento recusado.");
-                                                                    handleSearch({ preventDefault: () => { } } as any); // Refresh
-                                                                } catch (e) {
-                                                                    toast.error("Erro ao atualizar.");
-                                                                }
-                                                            }}
-                                                            className="py-3 rounded-xl bg-red-500/10 text-red-500 font-black text-xs uppercase hover:bg-red-500/20 transition-colors border border-red-500/20"
-                                                        >
-                                                            Recusar
-                                                        </button>
-                                                        <button
-                                                            onClick={async () => {
-                                                                if (!window.confirm("Deseja aprovar este orçamento?")) return;
-                                                                try {
-                                                                    await updateDoc(doc(db, 'service_orders', os.id), {
-                                                                        status: OSStatus.APPROVED,
-                                                                        updatedAt: serverTimestamp(),
-                                                                        statusNotes: 'Orçamento aprovado pelo cliente via portal.'
-                                                                    });
-                                                                    toast.success("Orçamento aprovado com sucesso!");
-                                                                    handleSearch({ preventDefault: () => { } } as any); // Refresh
-                                                                } catch (e) {
-                                                                    toast.error("Erro ao atualizar.");
-                                                                }
-                                                            }}
-                                                            className="py-3 rounded-xl bg-emerald-500/10 text-emerald-500 font-black text-xs uppercase hover:bg-emerald-500/20 transition-colors border border-emerald-500/20 shadow-lg shadow-emerald-500/10"
-                                                        >
-                                                            Aprovar Orçamento
-                                                        </button>
+                                                    <div className="mt-4 pt-4 border-t border-white/5">
+                                                        <div className="mb-3 p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+                                                            <p className="text-xs text-blue-400 font-semibold flex items-center gap-2">
+                                                                <ICONS.Bell className="w-4 h-4" />
+                                                                Aguardando sua aprovação
+                                                            </p>
+                                                            <p className="text-[10px] text-zinc-400 mt-1">
+                                                                Revise os itens e valores acima. Ao aprovar, a oficina iniciará o serviço.
+                                                            </p>
+                                                        </div>
+                                                        <div className="grid grid-cols-2 gap-3">
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (!window.confirm("Deseja recusar este orçamento?\n\nA oficina será notificada sobre sua decisão.")) return;
+                                                                    try {
+                                                                        await updateDoc(doc(db, 'service_orders', os.id), {
+                                                                            status: OSStatus.REJECTED,
+                                                                            updatedAt: serverTimestamp(),
+                                                                            statusNotes: 'Orçamento recusado pelo cliente via portal.'
+                                                                        });
+                                                                        toast.success("Orçamento recusado.");
+                                                                        handleSearch({ preventDefault: () => { } } as any); // Refresh
+                                                                    } catch (e) {
+                                                                        toast.error("Erro ao atualizar.");
+                                                                    }
+                                                                }}
+                                                                className="py-3 px-4 rounded-xl bg-rose-500/10 text-rose-500 font-black text-xs uppercase hover:bg-rose-500/20 transition-all border border-rose-500/20 flex items-center justify-center gap-2 active:scale-95"
+                                                            >
+                                                                <ICONS.X className="w-4 h-4" />
+                                                                Recusar
+                                                            </button>
+                                                            <button
+                                                                onClick={async () => {
+                                                                    if (!window.confirm("Deseja aprovar este orçamento?\n\nA oficina iniciará o serviço após sua confirmação.")) return;
+                                                                    try {
+                                                                        await updateDoc(doc(db, 'service_orders', os.id), {
+                                                                            status: OSStatus.APPROVED,
+                                                                            updatedAt: serverTimestamp(),
+                                                                            statusNotes: 'Orçamento aprovado pelo cliente via portal.'
+                                                                        });
+                                                                        toast.success("Orçamento aprovado com sucesso!");
+                                                                        handleSearch({ preventDefault: () => { } } as any); // Refresh
+                                                                    } catch (e) {
+                                                                        toast.error("Erro ao atualizar.");
+                                                                    }
+                                                                }}
+                                                                className="py-3 px-4 rounded-xl bg-emerald-500/10 text-emerald-500 font-black text-xs uppercase hover:bg-emerald-500/20 transition-all border border-emerald-500/20 shadow-lg shadow-emerald-500/10 flex items-center justify-center gap-2 active:scale-95"
+                                                            >
+                                                                <ICONS.CheckCircle2 className="w-4 h-4" />
+                                                                Aprovar
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* Status Messages for Approved/Rejected */}
+                                                {os.status === OSStatus.APPROVED && (
+                                                    <div className="mt-4 pt-4 border-t border-white/5">
+                                                        <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3">
+                                                            <div className="w-10 h-10 bg-emerald-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                                                                <ICONS.CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm text-emerald-400 font-black uppercase tracking-wide">Orçamento Aprovado</p>
+                                                                <p className="text-xs text-zinc-400 mt-1">
+                                                                    Você aprovou este orçamento. A oficina iniciará o serviço em breve.
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {os.status === OSStatus.REJECTED && (
+                                                    <div className="mt-4 pt-4 border-t border-white/5">
+                                                        <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-start gap-3">
+                                                            <div className="w-10 h-10 bg-rose-500/20 rounded-full flex items-center justify-center flex-shrink-0">
+                                                                <ICONS.X className="w-5 h-5 text-rose-500" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm text-rose-400 font-black uppercase tracking-wide">Orçamento Recusado</p>
+                                                                <p className="text-xs text-zinc-400 mt-1">
+                                                                    Você recusou este orçamento. A oficina foi notificada.
+                                                                </p>
+                                                            </div>
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
