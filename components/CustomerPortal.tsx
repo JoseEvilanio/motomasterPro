@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { db } from '../services/firebase';
 import { collection, query, where, getDocs, getDoc, updateDoc, doc, serverTimestamp } from 'firebase/firestore';
 import { OSStatus, ServiceOrder } from '../types';
@@ -43,29 +43,18 @@ const CustomerPortal: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [serviceOrders, setServiceOrders] = useState<ServiceOrder[]>([]);
     const [hasSearched, setHasSearched] = useState(false);
+    const [searchParams] = useSearchParams();
     const navigate = useNavigate();
+    const searchTriggered = useRef(false);
 
-    const handleSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        if (searchMode === 'VEHICLE') {
-            if (!plate || !taxId) {
-                toast.error(t('fill_all_fields'));
-                return;
-            }
-        } else {
-            if (!osNumberSearch) {
-                toast.error("Informe o número da OS");
-                return;
-            }
-        }
-
+    // Function moved outside to be reusable
+    const performSearch = async (mode: 'VEHICLE' | 'OS_NUMBER', queryVal: string, extraVal?: string) => {
         setLoading(true);
         setHasSearched(true);
         try {
-            if (searchMode === 'OS_NUMBER') {
+            if (mode === 'OS_NUMBER') {
                 const results: ServiceOrder[] = [];
-                const searchVal = osNumberSearch.trim();
+                const searchVal = queryVal.trim();
                 const isNumeric = /^\d+$/.test(searchVal);
 
                 // 1. Try search by osNumber field (String and Number versions for safety)
@@ -103,10 +92,10 @@ const CustomerPortal: React.FC = () => {
                 setServiceOrders(results);
             } else {
                 // Normalize search input (remove formatting for robust lookup)
-                const normalizedSearch = taxId.replace(/\D/g, '');
+                const normalizedSearch = (extraVal || '').replace(/\D/g, '');
 
                 // 1. Find vehicles (try both formats: ABC1234 and ABC-1234)
-                const cleanPlate = plate.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+                const cleanPlate = queryVal.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
                 const formattedPlate = cleanPlate.length === 7
                     ? `${cleanPlate.slice(0, 3)}-${cleanPlate.slice(3)}`
                     : cleanPlate;
@@ -135,7 +124,7 @@ const CustomerPortal: React.FC = () => {
                     const dbTaxId = (clientData.taxId || '').replace(/\D/g, '');
                     const dbPhone = (clientData.phone || '').replace(/\D/g, '');
 
-                    if (dbTaxId === normalizedSearch || dbPhone === normalizedSearch || clientData.taxId === taxId || clientData.phone === taxId) {
+                    if (dbTaxId === normalizedSearch || dbPhone === normalizedSearch || clientData.taxId === extraVal || clientData.phone === extraVal) {
                         // 3. Query OS by vehicleId only (avoids composite index requirement)
                         const osQuery = query(
                             collection(db, 'service_orders'),
@@ -159,6 +148,35 @@ const CustomerPortal: React.FC = () => {
             toast.error("Erro ao carregar informações.");
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Auto-search from URL param
+    useEffect(() => {
+        const osFromUrl = searchParams.get('os');
+        if (osFromUrl && !searchTriggered.current) {
+            searchTriggered.current = true;
+            setSearchMode('OS_NUMBER');
+            setOsNumberSearch(osFromUrl);
+            performSearch('OS_NUMBER', osFromUrl);
+        }
+    }, [searchParams]);
+
+    const handleSearch = async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        if (searchMode === 'VEHICLE') {
+            if (!plate || !taxId) {
+                toast.error(t('fill_all_fields'));
+                return;
+            }
+            performSearch('VEHICLE', plate, taxId);
+        } else {
+            if (!osNumberSearch) {
+                toast.error("Informe o número da OS");
+                return;
+            }
+            performSearch('OS_NUMBER', osNumberSearch);
         }
     };
 
