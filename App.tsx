@@ -16,8 +16,6 @@ import Header from './components/Header.tsx';
 import AuthScreen from './components/AuthScreen.tsx';
 import MechanicRegistration from './components/MechanicRegistration.tsx';
 import MechanicDashboard from './components/MechanicDashboard.tsx';
-import ClientDashboard from './components/ClientDashboard.tsx';
-import ClientSelfRegistration from './components/ClientSelfRegistration.tsx';
 import { auth, db } from './services/firebase.ts';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
@@ -75,23 +73,6 @@ const App: React.FC = () => {
             return;
           }
 
-          // 2. Check if Client
-          const clientQuery = query(collection(db, 'clients'), where('userId', '==', firebaseUser.uid));
-          const clientSnap = await getDocs(clientQuery);
-
-          if (!clientSnap.empty) {
-            const cData = clientSnap.docs[0].data();
-            setUser({
-              id: firebaseUser.uid,
-              name: cData.name,
-              email: firebaseUser.email || '',
-              role: UserRole.CLIENT,
-              clientId: clientSnap.docs[0].id,
-              ownerId: cData.ownerId // The workshop owner
-            });
-            setInitializing(false);
-            return;
-          }
 
           // 3. Default to ADMIN (Workshop Owner)
           setUser({
@@ -162,7 +143,6 @@ const App: React.FC = () => {
 
   if (!user || isJoinRoute) return (
     <Routes>
-      <Route path="/portal/registrar" element={<ClientSelfRegistration />} />
       <Route path="/join/:orgId" element={<MechanicRegistration />} />
       <Route path="*" element={!user ? <AuthScreen onLogin={setUser} /> : <Navigate to="/" replace />} />
     </Routes>
@@ -180,16 +160,6 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<MechanicDashboard user={user} />} />
             <Route path="/mechanic-dashboard" element={<MechanicDashboard user={user} />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      ) : user.role === UserRole.CLIENT ? (
-        <div className="flex-1 w-full overflow-y-auto custom-scrollbar">
-          <div className="flex justify-end p-4 absolute top-0 right-0 z-50">
-            <button onClick={handleLogout} className="bg-red-500/10 text-red-500 px-4 py-2 rounded-xl text-xs font-bold uppercase hover:bg-red-500/20 transition-colors">Sair</button>
-          </div>
-          <Routes>
-            <Route path="/" element={<ClientDashboard user={user} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>

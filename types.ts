@@ -2,8 +2,7 @@
 export enum UserRole {
   ADMIN = 'ADMIN',
   MECHANIC = 'MECHANIC',
-  ATTENDANT = 'ATTENDANT',
-  CLIENT = 'CLIENT'
+  ATTENDANT = 'ATTENDANT'
 }
 
 export enum OSStatus {
@@ -55,7 +54,6 @@ export interface User {
   role: UserRole;
   email: string;
   ownerId?: string; // Links to the workshop owner (if user is a mechanic)
-  clientId?: string; // Links to the client profile (if user is a client)
 }
 
 export interface Client {

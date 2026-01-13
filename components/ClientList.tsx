@@ -314,18 +314,6 @@ const ClientList: React.FC<{ user: User }> = ({ user }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            const inviteLink = `${window.location.origin}/portal/registrar?client=${client.id}`;
-                            navigator.clipboard.writeText(inviteLink);
-                            toast.success("Link de convite para " + client.name + " copiado!");
-                          }}
-                          className="bg-background-main border border-border p-3 rounded-xl text-zinc-500 hover:text-purple-500 hover:border-purple-500/20 transition-all"
-                          title="Gerar Link de Acesso do Cliente"
-                        >
-                          <UserPlus className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
                             setEditingClient(client);
                             setFormData({
                               name: client.name,
