@@ -149,7 +149,7 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#09090b] text-white overflow-hidden">
+    <div className="flex h-screen bg-[#09090b] text-white overflow-hidden">
       <Toaster position="top-right" theme="dark" richColors />
 
       {user.role === UserRole.MECHANIC ? (
