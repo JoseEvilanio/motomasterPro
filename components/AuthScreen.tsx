@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { User, UserRole } from '../types';
 import { APP_NAME, ICONS } from '../constants';
 import { t } from '../translations';
-import { auth } from '../services/firebase';
+import { auth, db } from '../services/firebase';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { LogIn, UserPlus, Mail, Lock, User as UserIcon, ArrowRight, Bike, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +28,21 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
 
     try {
       if (isForgot) {
+        // Validação Profissional: Verificar se o e-mail existe no banco
+        const settingsQuery = query(collection(db, 'settings'), where('email', '==', email));
+        const mechanicsQuery = query(collection(db, 'mechanics'), where('email', '==', email));
+
+        const [settingsSnap, mechanicsSnap] = await Promise.all([
+          getDocs(settingsQuery),
+          getDocs(mechanicsQuery)
+        ]);
+
+        if (settingsSnap.empty && mechanicsSnap.empty) {
+          alert("Este e-mail não foi encontrado em nossa base de dados. Por favor, verifique se o digitou corretamente.");
+          setLoading(false);
+          return;
+        }
+
         await sendPasswordResetEmail(auth, email);
         alert("E-mail de recuperação enviado com sucesso! Verifique sua caixa de entrada.");
         setIsForgot(false);
