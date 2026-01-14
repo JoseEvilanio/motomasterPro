@@ -168,15 +168,6 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     <label className="text-[10px] font-black text-zinc-500 uppercase tracking-widest ml-2 flex items-center gap-2">
                       <Lock className="w-3 h-3" /> {t('password')}
                     </label>
-                    {isLogin && (
-                      <button
-                        type="button"
-                        onClick={() => setIsForgot(true)}
-                        className="text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
-                      >
-                        Esqueceu a senha?
-                      </button>
-                    )}
                   </div>
                   <input
                     type="password"
@@ -186,6 +177,17 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
                     className="w-full bg-background-main/50 border border-border rounded-2xl px-6 py-4 text-sm text-white focus:outline-none focus:border-white/20 focus:ring-4 focus:ring-white/5 transition-all font-medium"
                     placeholder="••••••••"
                   />
+                  {isLogin && (
+                    <div className="flex justify-end pr-2">
+                      <button
+                        type="button"
+                        onClick={() => setIsForgot(true)}
+                        className="text-[9px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
+                      >
+                        Esqueceu a senha?
+                      </button>
+                    </div>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
