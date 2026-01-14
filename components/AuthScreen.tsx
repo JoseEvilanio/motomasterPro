@@ -32,10 +32,23 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         const settingsQuery = query(collection(db, 'settings'), where('email', '==', email));
         const mechanicsQuery = query(collection(db, 'mechanics'), where('email', '==', email));
 
-        const [settingsSnap, mechanicsSnap] = await Promise.all([
-          getDocs(settingsQuery),
-          getDocs(mechanicsQuery)
-        ]);
+        let settingsSnap, mechanicsSnap;
+
+        try {
+          [settingsSnap, mechanicsSnap] = await Promise.all([
+            getDocs(settingsQuery),
+            getDocs(mechanicsQuery)
+          ]);
+        } catch (queryError: any) {
+          console.error("Firestore Permission Error:", queryError);
+          if (queryError.code === 'permission-denied') {
+            alert("Erro de permissão: Para verificar se o e-mail existe, as regras de segurança do seu Firebase Firestore precisam permitir a leitura pública limitada das coleções 'settings' e 'mechanics'.");
+          } else {
+            alert("Erro ao verificar e-mail no banco de dados.");
+          }
+          setLoading(false);
+          return;
+        }
 
         if (settingsSnap.empty && mechanicsSnap.empty) {
           alert("Este e-mail não foi encontrado em nossa base de dados. Por favor, verifique se o digitou corretamente.");
