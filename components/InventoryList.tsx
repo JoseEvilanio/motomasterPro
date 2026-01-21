@@ -38,6 +38,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
     name: '',
     sku: '',
     price: '',
+    costPrice: '',
     stock: '',
     minStock: '',
     imageUrl: ''
@@ -67,9 +68,9 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
   }, [user.id, user.ownerId, user.role]);
 
   const handleSaveItem = async () => {
-    const { name, sku, price, stock, minStock } = formData;
+    const { name, sku, price, costPrice, stock, minStock } = formData;
 
-    if (!name || !sku || !price || !stock || !minStock) {
+    if (!name || !sku || !price || !costPrice || !stock || !minStock) {
       toast.error(t('fill_all_fields'));
       return;
     }
@@ -83,6 +84,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
         name,
         sku,
         price: parseFloat(price),
+        costPrice: parseFloat(costPrice),
         stock: parseInt(stock),
         minStock: parseInt(minStock),
         imageUrl: finalImageUrl,
@@ -115,6 +117,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
       name: product.name,
       sku: product.sku,
       price: String(product.price),
+      costPrice: String(product.costPrice || ''),
       stock: String(product.stock),
       minStock: String(product.minStock),
       imageUrl: product.imageUrl || ''
@@ -126,7 +129,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingItem(null);
-    setFormData({ name: '', sku: '', price: '', stock: '', minStock: '', imageUrl: '' });
+    setFormData({ name: '', sku: '', price: '', costPrice: '', stock: '', minStock: '', imageUrl: '' });
     setImageFile(null);
     setImagePreview(null);
   };
@@ -175,6 +178,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
             await addDoc(collection(db, 'products'), {
               name, sku,
               price: parseFloat(price || "0"),
+              costPrice: parseFloat(price || "0"), // Assuming cost = sale price if importing via XML for now
               stock: parseInt(qty || "0"),
               minStock: 5,
               ownerId: user.role === UserRole.ADMIN ? user.id : user.ownerId!,
@@ -239,7 +243,8 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
               <tr>
                 <th className="px-6 py-4 font-bold uppercase tracking-wider">Descrição do Produto</th>
                 <th className="px-6 py-4 font-bold uppercase tracking-wider text-center">SKU / Ref</th>
-                <th className="px-6 py-4 font-bold uppercase tracking-wider text-center">Preço Un.</th>
+                <th className="px-6 py-4 font-bold uppercase tracking-wider text-center">Custo</th>
+                <th className="px-6 py-4 font-bold uppercase tracking-wider text-center">Preço Venda</th>
                 <th className="px-6 py-4 font-bold uppercase tracking-wider text-center">Estoque</th>
                 <th className="px-6 py-4 text-right">Ações</th>
               </tr>
@@ -265,6 +270,7 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center text-zinc-500 font-mono font-bold">{product.sku}</td>
+                    <td className="px-6 py-4 text-center text-zinc-400 font-bold">R$ {(product.costPrice || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                     <td className="px-6 py-4 text-center text-zinc-100 font-black">R$ {product.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</td>
                     <td className="px-6 py-4 text-center">
                       <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${product.stock <= product.minStock ? 'bg-rose-500/10 text-rose-500 border border-rose-500/20' : 'bg-zinc-800 text-zinc-400'}`}>
@@ -337,11 +343,17 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
                 <label className="text-[10px] font-black text-zinc-500 uppercase ml-1">SKU / Referência</label>
                 <input value={formData.sku} onChange={(e) => setFormData({ ...formData, sku: e.target.value })} className="input-standard w-full" placeholder="REF-000" />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase ml-1">Preço R$</label>
+                  <label className="text-[10px] font-black text-zinc-500 uppercase ml-1">Preço de Custo R$</label>
+                  <input type="number" value={formData.costPrice} onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })} className="w-full bg-background-main border border-border rounded-2xl px-4 py-4 text-sm text-white focus:border-purple-500 outline-none transition-colors" placeholder="0.00" />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-zinc-500 uppercase ml-1">Preço de Venda R$</label>
                   <input type="number" value={formData.price} onChange={(e) => setFormData({ ...formData, price: e.target.value })} className="w-full bg-background-main border border-border rounded-2xl px-4 py-4 text-sm text-white focus:border-purple-500 outline-none transition-colors" placeholder="0.00" />
                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-zinc-500 uppercase ml-1">Estoque</label>
                   <input type="number" value={formData.stock} onChange={(e) => setFormData({ ...formData, stock: e.target.value })} className="w-full bg-background-main border border-border rounded-2xl px-4 py-4 text-sm text-white focus:border-purple-500 outline-none transition-colors" placeholder="0" />

@@ -84,6 +84,7 @@ export interface Product {
   name: string;
   sku: string;
   price: number;
+  costPrice: number;
   stock: number;
   minStock: number;
   ncm?: string;
