@@ -33,7 +33,11 @@ const Dashboard: React.FC<{ user: User }> = ({ user }) => {
 
   useEffect(() => {
     setIsMounted(true);
-    const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+    const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN)
+      ? user.id
+      : user.ownerId;
+
+    if (!ownerId) return;
 
     const qClients = query(collection(db, 'clients'), where('ownerId', '==', ownerId));
     const unsubClients = onSnapshot(qClients, (snap) => {

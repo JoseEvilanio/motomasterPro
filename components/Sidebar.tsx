@@ -46,7 +46,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, userRole, onLog
         { id: 'SERVICES' as View, label: t('services'), icon: <ICONS.Wrench className="w-4 h-4" /> },
         { id: 'FINANCIAL' as View, label: t('financial'), icon: <ICONS.Dollar className="w-4 h-4" /> },
       ]
-    }
+    },
+    ...(userRole === UserRole.PLATFORM_ADMIN ? [{
+      title: 'SUPER ADMIN',
+      items: [
+        { id: 'PLATFORM_ADMIN' as View, label: 'ADMINISTRAÇÃO', icon: <ICONS.Dashboard className="w-4 h-4" /> },
+      ]
+    }] : [])
   ];
 
   return (

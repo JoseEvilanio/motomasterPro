@@ -88,7 +88,12 @@ const OSManagement: React.FC<{ user: User }> = ({ user }) => {
   const { workshopSettings } = useStore();
 
   useEffect(() => {
-    const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+    const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN)
+      ? user.id
+      : user.ownerId;
+
+    if (!ownerId) return;
+
     const qMechanics = query(collection(db, 'mechanics'), where('ownerId', '==', ownerId));
     const unsubscribeMechanics = onSnapshot(qMechanics, (snapshot) => {
       setMechanics(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
@@ -97,7 +102,14 @@ const OSManagement: React.FC<{ user: User }> = ({ user }) => {
   }, [user.id, user.ownerId, user.role]);
 
   useEffect(() => {
-    const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+    const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN)
+      ? user.id
+      : user.ownerId;
+
+    if (!ownerId) {
+      setLoading(false);
+      return;
+    }
 
     const qOS = query(collection(db, 'service_orders'), where('ownerId', '==', ownerId));
     const unsubscribeOS = onSnapshot(qOS, (snapshot) => {
@@ -229,7 +241,7 @@ const OSManagement: React.FC<{ user: User }> = ({ user }) => {
       return;
     }
     try {
-      const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+      const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN) ? user.id : user.ownerId!;
       const docRef = await addDoc(collection(db, 'clients'), {
         ...quickClientData,
         ownerId: ownerId,
@@ -257,7 +269,7 @@ const OSManagement: React.FC<{ user: User }> = ({ user }) => {
   };
 
   const processOSBilling = async (osId: string, osData: any) => {
-    const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+    const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN) ? user.id : user.ownerId!;
 
     // 1. Create financial transaction
     await addDoc(collection(db, 'transactions'), {
@@ -339,7 +351,7 @@ const OSManagement: React.FC<{ user: User }> = ({ user }) => {
       const payload = {
         ...formData,
         osNumber: finalOSNumber,
-        ownerId: user.role === UserRole.ADMIN ? user.id : user.ownerId!,
+        ownerId: (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN) ? user.id : user.ownerId!,
         fiscalStatus: activeOS?.fiscalStatus || 'NONE',
         total: osTotal,
         updatedAt: serverTimestamp(),

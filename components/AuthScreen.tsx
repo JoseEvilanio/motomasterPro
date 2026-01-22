@@ -4,7 +4,7 @@ import { User, UserRole } from '../types';
 import { APP_NAME, ICONS } from '../constants';
 import { t } from '../translations';
 import { auth, db } from '../services/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, verifyPasswordResetCode, confirmPasswordReset } from 'firebase/auth';
 import { LogIn, UserPlus, Mail, Lock, User as UserIcon, ArrowRight, Bike, Search, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -104,20 +104,33 @@ const AuthScreen: React.FC<AuthScreenProps> = ({ onLogin }) => {
         setIsLogin(true);
       } else if (isLogin) {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        onLogin({
+        const userData = {
           id: userCredential.user.uid,
           name: userCredential.user.displayName || userCredential.user.email?.split('@')[0] || 'User',
           email: userCredential.user.email || '',
-          role: UserRole.ADMIN
-        });
+          role: UserRole.ADMIN,
+          lastLogin: serverTimestamp()
+        };
+
+        // Sync to users collection
+        await setDoc(doc(db, 'users', userData.id), userData, { merge: true });
+
+        onLogin(userData);
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        onLogin({
+        const userData = {
           id: userCredential.user.uid,
           name: name || email.split('@')[0],
           email: userCredential.user.email || '',
-          role: UserRole.ADMIN
-        });
+          role: UserRole.ADMIN,
+          createdAt: serverTimestamp(),
+          lastLogin: serverTimestamp()
+        };
+
+        // Sync to users collection
+        await setDoc(doc(db, 'users', userData.id), userData, { merge: true });
+
+        onLogin(userData);
       }
     } catch (error: any) {
       console.error("Auth error:", error);

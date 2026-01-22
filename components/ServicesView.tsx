@@ -39,7 +39,15 @@ const ServicesView: React.FC<ServicesViewProps> = ({ user }) => {
     });
 
     useEffect(() => {
-        const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+        const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN)
+            ? user.id
+            : user.ownerId;
+
+        if (!ownerId) {
+            setLoading(false);
+            return;
+        }
+
         const q = query(
             collection(db, 'services'),
             where('ownerId', '==', ownerId)
@@ -74,7 +82,7 @@ const ServicesView: React.FC<ServicesViewProps> = ({ user }) => {
             const payload = {
                 ...formData,
                 price: parseFloat(price),
-                ownerId: user.role === UserRole.ADMIN ? user.id : user.ownerId!,
+                ownerId: (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN) ? user.id : user.ownerId!,
                 updatedAt: serverTimestamp()
             };
 

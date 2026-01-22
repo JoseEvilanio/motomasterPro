@@ -45,7 +45,15 @@ const InventoryList: React.FC<InventoryListProps> = ({ user }) => {
   });
 
   useEffect(() => {
-    const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+    const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN)
+      ? user.id
+      : user.ownerId;
+
+    if (!ownerId) {
+      setLoading(false);
+      return;
+    }
+
     const q = query(
       collection(db, 'products'),
       where('ownerId', '==', ownerId)

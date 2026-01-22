@@ -47,7 +47,15 @@ const FinancialView: React.FC<{ user: User }> = ({ user }) => {
   });
 
   useEffect(() => {
-    const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+    const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN)
+      ? user.id
+      : user.ownerId;
+
+    if (!ownerId) {
+      setLoading(false);
+      return;
+    }
+
     const q = query(
       collection(db, 'transactions'),
       where('ownerId', '==', ownerId)
@@ -98,7 +106,7 @@ const FinancialView: React.FC<{ user: User }> = ({ user }) => {
       const payload = {
         ...formData,
         amount: parseFloat(formData.amount),
-        ownerId: user.role === UserRole.ADMIN ? user.id : user.ownerId!,
+        ownerId: (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN) ? user.id : user.ownerId!,
         date: editingTransaction?.date || serverTimestamp(),
         updatedAt: serverTimestamp()
       };

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { UserRole, Product, View } from './types.ts';
 import Dashboard from './components/Dashboard.tsx';
 import ClientList from './components/ClientList.tsx';
@@ -10,6 +10,7 @@ import FinancialView from './components/FinancialView.tsx';
 import SettingsView from './components/SettingsView.tsx';
 import VehiclesView from './components/VehiclesView.tsx';
 import ServicesView from './components/ServicesView.tsx';
+import PlatformAdminView from './components/PlatformAdminView.tsx';
 
 import Sidebar from './components/Sidebar.tsx';
 import Header from './components/Header.tsx';
@@ -18,7 +19,7 @@ import MechanicRegistration from './components/MechanicRegistration.tsx';
 import MechanicDashboard from './components/MechanicDashboard.tsx';
 import { auth, db } from './services/firebase.ts';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { collection, onSnapshot, query, where, getDocs } from 'firebase/firestore';
+import { collection, onSnapshot, query, where, getDocs, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useStore } from './services/store';
 import { Toaster } from 'sonner';
 
@@ -33,61 +34,108 @@ const App: React.FC = () => {
   } = useStore();
 
   const location = useLocation();
+  const navigate = useNavigate();
   const isJoinRoute = location.pathname.startsWith('/join/');
 
   useEffect(() => {
     if (!user) return;
-    const qSettings = query(collection(db, 'settings'), where('ownerId', '==', user.role === UserRole.ADMIN ? user.id : user.ownerId));
+
+    // Determine which ownerId to use based on role
+    const targetOwnerId = user.role === UserRole.MECHANIC ? user.ownerId : user.id;
+
+    if (!targetOwnerId) {
+      console.warn("User has no ownerId or id, skipping settings fetch");
+      return;
+    }
+
+    const qSettings = query(collection(db, 'settings'), where('ownerId', '==', targetOwnerId));
     const unsubscribe = onSnapshot(qSettings, (snapshot) => {
       if (!snapshot.empty) {
         setWorkshopSettings(snapshot.docs[0].data());
       }
     });
     return () => unsubscribe();
-  }, [user?.id, user?.ownerId]);
+  }, [user?.id, user?.ownerId, user?.role]);
 
   useEffect(() => {
     let unsubscribeMechanicListener: () => void;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
-        // Initial setup with default role, but DO NOT stop initializing yet strictly for the role part? 
-        // We can set user immediately, and let the listener update the role.
-
-        // Setup listener for roles (Mechanic or Client)
         const checkRoles = async () => {
           // 1. Check if Mechanic
           const mechanicQuery = query(collection(db, 'mechanics'), where('userId', '==', firebaseUser.uid));
           const mechanicSnap = await getDocs(mechanicQuery);
 
+          // Base Sync Data
+          const syncData: any = {
+            id: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            lastLogin: serverTimestamp(),
+          };
+
           if (!mechanicSnap.empty) {
             const mData = mechanicSnap.docs[0].data();
-            setUser({
+            const mechanicUser = {
               id: firebaseUser.uid,
               name: mData.name,
               email: firebaseUser.email || '',
               role: UserRole.MECHANIC,
               ownerId: mData.ownerId
-            });
-            setInitializing(false);
-            return;
+            };
+            setUser(mechanicUser);
+            // Sync Mechanic
+            syncData.name = mData.name;
+            syncData.role = UserRole.MECHANIC;
+            syncData.ownerId = mData.ownerId;
+          } else if (firebaseUser.email === 'jose_evilanio@hotmail.com') {
+            const superAdmin = {
+              id: firebaseUser.uid,
+              name: "Super Admin",
+              email: firebaseUser.email,
+              role: UserRole.PLATFORM_ADMIN
+            };
+            setUser(superAdmin);
+            // Sync Super Admin
+            syncData.name = "Super Admin";
+            syncData.role = UserRole.PLATFORM_ADMIN;
+          } else {
+            const adminUser = {
+              id: firebaseUser.uid,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+              email: firebaseUser.email || '',
+              role: UserRole.ADMIN
+            };
+            setUser(adminUser);
+            // Sync Admin
+            syncData.role = UserRole.ADMIN;
           }
 
+          // Persistent syncing to 'users' collection for ALL users
+          try {
+            await setDoc(doc(db, 'users', firebaseUser.uid), syncData, { merge: true });
+          } catch (syncError) {
+            console.error("Error syncing user data to Firestore:", syncError);
+          }
 
-          // 3. Default to ADMIN (Workshop Owner)
-          setUser({
-            id: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-            email: firebaseUser.email || '',
-            role: UserRole.ADMIN
-          });
           setInitializing(false);
         };
 
         checkRoles();
 
+        // 2. Setup Real-time Profile Listener to catch blocking/updates
+        const unsubscribeProfile = onSnapshot(doc(db, 'users', firebaseUser.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Since store.setUser doesn't support functional update, we merge with current user from store
+            const currentUser = useStore.getState().user;
+            setUser({ ...(currentUser || {}), ...data } as any);
+          }
+        });
+
+        unsubscribeMechanicListener = unsubscribeProfile;
       } else {
-        if (unsubscribeMechanicListener) unsubscribeMechanicListener();
         setUser(null);
         setInitializing(false);
       }
@@ -116,7 +164,7 @@ const App: React.FC = () => {
   // Sincronizar visualização atual com a rota
   useEffect(() => {
     const path = location.pathname.slice(1).toUpperCase() || 'DASHBOARD';
-    if (['DASHBOARD', 'CLIENTS', 'VEHICLES', 'OS', 'INVENTORY', 'SERVICES', 'FINANCIAL', 'SETTINGS', 'SALES'].includes(path)) {
+    if (['DASHBOARD', 'CLIENTS', 'VEHICLES', 'OS', 'INVENTORY', 'SERVICES', 'FINANCIAL', 'SETTINGS', 'SALES', 'PLATFORM_ADMIN'].includes(path)) {
       setCurrentView(path as View);
     }
   }, [location, setCurrentView]);
@@ -129,6 +177,7 @@ const App: React.FC = () => {
     try {
       await signOut(auth);
       setUser(null);
+      navigate('/'); // Redirect to safe path on logout
     } catch (e) {
       console.error(e);
     }
@@ -147,6 +196,43 @@ const App: React.FC = () => {
       <Route path="*" element={!user ? <AuthScreen onLogin={setUser} /> : <Navigate to="/" replace />} />
     </Routes>
   );
+
+  // Block Access if User or Workshop is Inactive
+  const isBlocked = user.role !== UserRole.PLATFORM_ADMIN && (user.isActive === false || (workshopSettings && workshopSettings.isActive === false));
+
+  if (isBlocked) {
+    return (
+      <div className="fixed inset-0 bg-[#09090b] z-[9999] flex items-center justify-center p-6 overflow-hidden">
+        {/* Decorative Background */}
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
+          <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-red-600 blur-[120px] rounded-full" />
+          <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-red-900 blur-[120px] rounded-full" />
+        </div>
+
+        <div className="relative w-full max-w-md bg-[#1c1c20]/40 backdrop-blur-xl border border-red-500/20 rounded-[2.5rem] p-10 text-center space-y-8 shadow-2xl">
+          <div className="w-20 h-20 bg-red-500/10 rounded-3xl mx-auto flex items-center justify-center border border-red-500/20">
+            <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-white uppercase tracking-tight">Acesso Bloqueado</h2>
+            <p className="text-zinc-400 text-sm">Sua conta ou oficina foi temporariamente suspensa por um administrador da plataforma.</p>
+          </div>
+
+          <div className="bg-red-500/5 border border-red-500/10 rounded-2xl p-4">
+            <p className="text-xs text-red-400 font-bold">Por favor, entre em contato com o suporte para regularizar seu acesso.</p>
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="w-full py-4 bg-white text-black text-xs font-black uppercase tracking-widest rounded-2xl hover:bg-zinc-200 transition-all active:scale-95"
+          >
+            Sair do Sistema
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-[#09090b] text-white overflow-hidden">
@@ -201,6 +287,11 @@ const App: React.FC = () => {
                   <Route path="/services" element={<ServicesView user={user} />} />
                   <Route path="/financial" element={<FinancialView user={user} />} />
                   <Route path="/settings" element={<SettingsView user={user} />} />
+                  {/* Protected Admin Route */}
+                  <Route
+                    path="/platform_admin"
+                    element={user.role === UserRole.PLATFORM_ADMIN ? <PlatformAdminView user={user} /> : <Navigate to="/dashboard" replace />}
+                  />
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </div>

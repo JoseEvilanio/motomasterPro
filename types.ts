@@ -2,7 +2,8 @@
 export enum UserRole {
   ADMIN = 'ADMIN',
   MECHANIC = 'MECHANIC',
-  ATTENDANT = 'ATTENDANT'
+  ATTENDANT = 'ATTENDANT',
+  PLATFORM_ADMIN = 'PLATFORM_ADMIN'
 }
 
 export enum OSStatus {
@@ -54,6 +55,7 @@ export interface User {
   role: UserRole;
   email: string;
   ownerId?: string; // Links to the workshop owner (if user is a mechanic)
+  isActive?: boolean; // For platform admin to block access
 }
 
 export interface Client {
@@ -147,6 +149,7 @@ export interface WorkshopSettings {
   taxId: string;
   email: string;
   logoUrl?: string;
+  isActive?: boolean; // For platform admin to block access
   fiscal: FiscalConfig;
   automation: {
     whatsapp: boolean;
@@ -213,4 +216,4 @@ export interface Sale {
   updatedAt: any;
 }
 
-export type View = 'DASHBOARD' | 'CLIENTS' | 'VEHICLES' | 'OS' | 'INVENTORY' | 'SERVICES' | 'SALES' | 'FINANCIAL' | 'REPORTS' | 'SETTINGS';
+export type View = 'DASHBOARD' | 'CLIENTS' | 'VEHICLES' | 'OS' | 'INVENTORY' | 'SERVICES' | 'SALES' | 'FINANCIAL' | 'REPORTS' | 'SETTINGS' | 'PLATFORM_ADMIN';

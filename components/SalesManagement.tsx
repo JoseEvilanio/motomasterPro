@@ -37,7 +37,15 @@ const SalesManagement: React.FC<SalesManagementProps> = ({ user }) => {
     const [clients, setClients] = useState<any[]>([]);
 
     useEffect(() => {
-        const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+        const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN)
+            ? user.id
+            : user.ownerId;
+
+        if (!ownerId) {
+            setLoading(false);
+            return;
+        }
+
         const qSales = query(
             collection(db, 'sales'),
             where('ownerId', '==', ownerId)
@@ -104,7 +112,7 @@ const SalesManagement: React.FC<SalesManagementProps> = ({ user }) => {
                 }
             }
 
-            const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+            const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN) ? user.id : user.ownerId!;
             // Financial transaction
             await addDoc(collection(db, 'transactions'), {
                 ownerId: ownerId,

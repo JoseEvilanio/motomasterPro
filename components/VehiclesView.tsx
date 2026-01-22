@@ -53,7 +53,15 @@ const VehiclesView: React.FC<{ user: UserType }> = ({ user }) => {
   });
 
   useEffect(() => {
-    const ownerId = user.role === UserRole.ADMIN ? user.id : user.ownerId!;
+    const ownerId = (user.role === UserRole.ADMIN || user.role === UserRole.PLATFORM_ADMIN)
+      ? user.id
+      : user.ownerId;
+
+    if (!ownerId) {
+      setLoading(false);
+      return;
+    }
+
     const vRef = collection(db, 'vehicles');
     const vQuery = query(vRef, where('ownerId', '==', ownerId));
 
